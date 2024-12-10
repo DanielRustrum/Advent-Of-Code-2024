@@ -1,42 +1,24 @@
 from pprint import pprint
 from alive_progress import alive_bar
 from lib.getInput import getInput
-import uuid
-
-# Generate a random UUID (version 4)
-
-id_order_of_creation = []
 
 def printBlock(block):
     new_block = []
     for char in block:
-        if char == ".":
-            new_block.append(char)
-        else:
-            new_block.append(getIdEquivalent(char))
-            
-    with open("d9.log", "w+") as file:
-        file.write(str(new_block))
+        new_block.append(char)
 
-def getNextId():
-    my_uuid = uuid.uuid4() 
-    id_order_of_creation.append(my_uuid)
-
-    return my_uuid
-
-def getIdEquivalent(id):
-    id_index = id_order_of_creation.index(id)
-    return id_index
+def getNextId(id):
+    return id + 1
 
 def expandDisk(disk):
-    id = getNextId()
+    id = 0
     use_id = True
     block = []
     for number in disk:
         if use_id:
             for _ in range(int(number)):
                 block.append(id)
-            id = getNextId()
+            id = getNextId(id)
             use_id = False
         else:
             for _ in range(int(number)):
@@ -51,31 +33,74 @@ def swapChar(swap, index1, index2):
     return new_list
 
 def gapsFilled(block, next_space):
+    # This sucks at performance; too lazy too fix
     return block[next_space:].count('.') == len(block[next_space:])
 
 def fillGaps(block):
     filled_block = block
-    with alive_bar(len(block)) as bar:
-        for index in range(len(block)):
-            bar()
-            if "." not in block:
-                break
+    for index in range(len(block)):
+        if "." not in block:
+            break
 
-            char_index = len(block) - 1 - index
-            next_space = filled_block.index(".")
+        char_index = len(block) - 1 - index
+        next_space = filled_block.index(".")
 
-            if gapsFilled(filled_block, next_space):
-                break
-            else:
-                filled_block = swapChar(filled_block, char_index, next_space)
+        if gapsFilled(filled_block, next_space):
+            break
+        else:
+            filled_block = swapChar(filled_block, char_index, next_space)
     return filled_block
+
+def fillGapWithChunks(block):
+    right_index = len(block) - 1
+    
+    while True:
+        id = None
+        data_chunk = []
+        space_chunk = []
+
+        # Get next Data Chunk  
+        while right_index >= 0:
+            char = block[right_index]
+            if char != '.' and (id == None or id == char):
+                id = char
+                data_chunk.append(right_index)
+                right_index -= 1
+            elif char == '.' and len(data_chunk) == 0:
+                right_index -= 1
+            else:
+                break
+
+        # Find Available Space for data chunk
+        left_index = 0
+        while left_index <= right_index:
+            char = block[left_index]
+            if char == '.':
+                space_chunk.append(left_index)
+                if len(space_chunk) == len(data_chunk):
+                    # Get a list of needed spaces and swap them (paired) i.e. [(41, 2), (40, 3)]
+                    for right_char_index, left_char_index in zip(data_chunk, space_chunk):
+                        block = swapChar(
+                            block, 
+                            right_char_index, 
+                            left_char_index
+                        )
+                    break
+            else:
+                space_chunk = []
+            left_index += 1
+
+        if right_index < 0:
+            break
+
+    return block
 
 def checksumBlock(block):
     result = 0
     for index, id in enumerate(block):
         if id == ".":
-            break
-        result += index * getIdEquivalent(id)
+            continue
+        result += index * id
     return result
 
 def Q1(disk):
@@ -121,18 +146,33 @@ def Q1(disk):
 
     Compact the amphipod's hard drive using the process he requested. What is the resulting filesystem checksum? (Be careful copy/pasting the input for this puzzle; it is a single, very long line.)
     '''
-    print("ExpandingDisk...")
     block = expandDisk(disk)
-    printBlock(block)
-    print("Filling...", len(block))
     filled = fillGaps(block)
-    printBlock(filled)
-    print("Doing CheckSum...")
     result = checksumBlock(filled)
-    print("Done!")
     return result
 
+def Q2(disk):
+    '''
+    The eager amphipod already has a new plan: rather than move individual blocks, he'd like to try compacting the files on his disk by moving whole files instead.
 
-# disk = getInput(9)[0]
-disk = ["1010101010101010101010"][0]
+    This time, attempt to move whole files to the leftmost span of free space blocks that could fit the file. Attempt to move each file exactly once in order of decreasing file ID number starting with the file with the highest file ID number. If there is no span of free space to the left of a file that is large enough to fit the file, the file does not move.
+
+    The first example from above now proceeds differently:
+
+    00...111...2...333.44.5555.6666.777.888899
+    0099.111...2...333.44.5555.6666.777.8888..
+    0099.1117772...333.44.5555.6666.....8888..
+    0099.111777244.333....5555.6666.....8888..
+    00992111777.44.333....5555.6666.....8888..
+    The process of updating the filesystem checksum is the same; now, this example's checksum would be 2858.
+
+    Start over, now compacting the amphipod's hard drive using this new method instead. What is the resulting filesystem checksum?
+    '''
+    block = expandDisk(disk)
+    filled = fillGapWithChunks(block)
+    result = checksumBlock(filled)
+    return result
+
+disk = getInput(9)[0]
 print( Q1(disk) )
+print( Q2(disk) )
