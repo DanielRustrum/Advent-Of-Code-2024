@@ -1,8 +1,7 @@
-from pprint import pprint
-from alive_progress import alive_bar
 from lib.getInput import getInput
 from copy import copy
 from lib.flatten import flattenList
+from functools import cache
 
 NON_ZEROS = ["1","2","3","4","5","6","7","8","9"]
 
@@ -16,7 +15,9 @@ def noLeadingZeros(string):
 
 def blink(stones):
     stone_copy = copy(stones)
-    for stone_index, stone in enumerate(stones):
+    for stone_index in range(len(stones)):
+        stone = stones[stone_index]
+        
         # Rule 1
         if stone == "0":
             stone_copy[stone_index] = "1"
@@ -37,6 +38,35 @@ def blink(stones):
         )
 
     return flattenList(stone_copy)
+
+def formatStones(stones):
+    return [int(stone) for stone in stones]
+
+# Same Issue as Computing Factorial Stores Results so you don't Compute the Same Computations
+# Memoize Function
+@cache
+def blinkStone(stone, steps):
+
+    # Reached End count stone
+    if steps == 0:
+        return 1
+
+    # Rule 1 Stone Changes
+    if stone == 0:
+        return blinkStone(1, steps - 1)
+
+    # Rule 2 Stone Splits
+    stone_string = str(stone)
+    length = len(stone_string)
+    if length % 2 == 0:
+        middle_index = length // 2
+        left = int(stone_string[:middle_index])
+        right = int(stone_string[middle_index:])
+
+        return blinkStone(left, steps-1) + blinkStone(right, steps-1)
+    
+    # Rule 3
+    return blinkStone(stone * 2024, steps - 1)
 
 
 def Q1(stones):
@@ -96,12 +126,12 @@ def Q2(stones):
 
     How many stones would you have after blinking a total of 75 times?
     '''
-    stone_copy = copy(stones)
-    with alive_bar(75) as bar:
-        for _ in range(75):
-            bar()
-            stone_copy = blink(stone_copy)
-    return len(stone_copy)
+    count = 0
+    steps = 75
+    
+    for stone in formatStones(stones):
+        count += blinkStone(stone, steps)
+    return count
 
 stones = getInput(11)[0].split(" ")
 # stones =  "125 17".split(" ")
